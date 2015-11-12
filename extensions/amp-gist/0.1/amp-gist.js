@@ -34,21 +34,21 @@ class AmpGist extends AMP.BaseElement {
 
   /** @override */
   layoutCallback() {
-    var width = this.element.getAttribute('width');
-    var height = this.element.getAttribute('height');
     var src = AMP.assert(
         (this.element.getAttribute('data-src') ||
         this.element.getAttribute('src')),
         'The data-src attribute is required for <amp-gist> %s',
         this.element);
+// TODO: must be github, must end in .js
     assertHttpsUrl(src, 'amp-gist');
+    this.element.src = '#';
     var iframe = getIframe(this.element.ownerDocument.defaultView,
-        this.element, 'github-gist');
-    iframe.contentWindow.document.body.innerHTML = '<script src="' + src + '"></script>';
+        this.element, 'github');
     this.applyFillContent(iframe);
     this.element.appendChild(iframe);
     // Triggered by context.updateDimensions() inside the iframe.
     listen(iframe, 'embed-size', data => {
+      iframe.contentWindow.document.body.innerHTML = '<script src="' + src + '"></script>';
       iframe.height = data.height;
       iframe.width = data.width;
       var amp = iframe.parentElement;

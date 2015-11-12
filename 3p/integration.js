@@ -26,6 +26,7 @@ import {adsense} from '../ads/adsense';
 import {adtech} from '../ads/adtech';
 import {doubleclick} from '../ads/doubleclick';
 import {twitter} from './twitter';
+import {github} from './github';
 import {register, run} from '../src/3p';
 import {parseUrl} from '../src/url';
 
@@ -38,6 +39,7 @@ register('_ping_', function(win, data) {
   win.document.getElementById('c').textContent = data.ping;
 });
 register('twitter', twitter);
+register('github', github);
 
 /**
  * Visible for testing.
@@ -88,7 +90,7 @@ window.draw3p = function() {
   window.context.isMaster = window.context.master == window;
   window.context.data = data;
   window.context.noContentAvailable = triggerNoContentAvailable;
-  if (data.type == 'twitter') {
+  if (data.type == 'twitter' || data.type == 'github') {
     // Only make this available to Twitter for now while
     // https://github.com/ampproject/amphtml/issues/728
     // is being implemented.
