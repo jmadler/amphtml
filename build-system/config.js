@@ -96,10 +96,14 @@ module.exports = {
   karma: karma,
   lintGlobs: [
     '**/*.js',
-    '!{node_modules,build,dist,dist.3p,third_party,build-system}/**/*.*'
+    '!{node_modules,build,dist,dist.3p,third_party,build-system}/**/*.*',
+    '!{testing,examples}/**/*.*',
+    '!gulpfile.js',
+    '!karma.conf.js',
+    '!**/local-amp-chrome-extension/background.js',
   ],
   presubmitGlobs: [
-    '**/*.{css,js,html,md}',
+    '**/*.{css,js}',
     // This does match dist.3p/current, so we run presubmit checks on the
     // built 3p binary. This is done, so we make sure our special 3p checks
     // run against the entire transitive closure of deps.
@@ -109,4 +113,5 @@ module.exports = {
     '!gulpfile.js',
     '!third_party/**/*.*',
   ],
+  changelogIgnoreFileTypes: /\.md|\.json|\.yaml|LICENSE|CONTRIBUTORS$/
 };

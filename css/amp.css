@@ -280,6 +280,12 @@ i-amp-scroll-container {
 }
 
 
+/* Polyfill for IE and any other browser that don't understand templates . */
+template {
+  display: none !important;
+}
+
+
 amp-pixel {
   position: absolute !important;
   top: 0 !important;
@@ -287,6 +293,16 @@ amp-pixel {
   height: 1px !important; /* Only things with height are ever loaded. */
   overflow: hidden !important;
   visibility: hidden;
+}
+
+/**
+ * Force the layout box of the ad iframe to be exactly as big as the actual
+ * iframe. The `amp-ad` tag itself can be freely styled.
+ */
+amp-ad iframe {
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /**

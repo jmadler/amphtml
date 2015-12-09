@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-import {Vsync, vsync} from '../../src/vsync';
+import {Vsync} from '../../src/vsync';
 import {viewerFor} from '../../src/viewer';
 import * as sinon from 'sinon';
 
 
 describe('vsync', () => {
+  let vsync;
+
+  beforeEach(() => {
+    vsync = new Vsync(window);
+  });
+
   it('should generate a frame and run callbacks', () => {
-    var result = '';
+    let result = '';
     return new Promise(resolve => {
       vsync.run({
         measure: () => {
@@ -53,13 +59,17 @@ describe('vsync', () => {
         result += 'mu4';
         resolve();
       });
+      vsync.measure(() => {
+        result += 'me4';
+        resolve();
+      });
     }).then(() => {
-      expect(result).to.equal('me1me2me3mu1mu2mu3mu4');
+      expect(result).to.equal('me1me2me3me4mu1mu2mu3mu4');
     });
   });
 
   it('should schedule nested vsyncs', () => {
-    var result = '';
+    let result = '';
     return new Promise(resolve => {
       vsync.run({
         measure: () => {

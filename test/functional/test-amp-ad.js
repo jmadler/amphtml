@@ -20,6 +20,7 @@ import {installAd, scoreDimensions_, upgradeImages_, AD_LOAD_TIME_MS} from
 import {viewportFor} from
     '../../src/viewport';
 import {timer} from '../../src/timer';
+import {vsync} from '../../src/vsync';
 import * as sinon from 'sinon';
 
 describe('amp-ad', () => {
@@ -28,17 +29,21 @@ describe('amp-ad', () => {
       opt_beforeLayoutCallback) {
     return createIframePromise(undefined, opt_beforeLayoutCallback)
         .then(iframe => {
+          iframe.iframe.style.height = '400px';
+          iframe.iframe.style.width = '400px';
           installAd(iframe.win);
           if (canonical) {
-            var link = iframe.doc.createElement('link');
+            const link = iframe.doc.createElement('link');
             link.setAttribute('rel', 'canonical');
             link.setAttribute('href', canonical);
             iframe.doc.head.appendChild(link);
           }
-          var a = iframe.doc.createElement('amp-ad');
-          for (var key in attributes) {
+          let a = iframe.doc.createElement('amp-ad');
+          for (const key in attributes) {
             a.setAttribute(key, attributes[key]);
           }
+          // Make document long.
+          a.style.marginBottom = '1000px';
           if (opt_handleElement) {
             a = opt_handleElement(a);
           }
@@ -58,15 +63,15 @@ describe('amp-ad', () => {
       // Test precedence
       'data-width': '6666'
     }, 'https://schema.org').then(ad => {
-      var iframe = ad.firstChild;
+      const iframe = ad.firstChild;
       expect(iframe).to.not.be.null;
       expect(iframe.tagName).to.equal('IFRAME');
-      var url = iframe.getAttribute('src');
+      const url = iframe.getAttribute('src');
       expect(url).to.match(/^http:\/\/ads.localhost:/);
       expect(url).to.match(/frame(.max)?.html#{/);
 
-      var fragment = url.substr(url.indexOf('#') + 1);
-      var data = JSON.parse(fragment);
+      const fragment = url.substr(url.indexOf('#') + 1);
+      const data = JSON.parse(fragment);
 
       expect(data.type).to.equal('a9');
       expect(data.src).to.equal('https://testsrc');
@@ -75,8 +80,8 @@ describe('amp-ad', () => {
       expect(data._context.canonicalUrl).to.equal('https://schema.org/');
       expect(data.aax_size).to.equal('300x250');
 
-      var doc = iframe.ownerDocument;
-      var fetches = doc.querySelectorAll(
+      const doc = iframe.ownerDocument;
+      const fetches = doc.querySelectorAll(
           'link[rel=prefetch]');
       expect(fetches).to.have.length(3);
       expect(fetches[0].href).to.equal(
@@ -85,7 +90,7 @@ describe('amp-ad', () => {
           'https://3p.ampproject.net/$internalRuntimeVersion$/f.js');
       expect(fetches[2].href).to.equal(
           'https://c.amazon-adsystem.com/aax2/assoc.js');
-      var preconnects = doc.querySelectorAll(
+      const preconnects = doc.querySelectorAll(
           'link[rel=preconnect]');
       expect(preconnects[preconnects.length - 1].href).to.equal(
           'https://testsrc/');
@@ -126,10 +131,10 @@ describe('amp-ad', () => {
       type: 'a9',
       src: 'testsrc',
     }, 'https://schema.org', function(ad) {
-      var s = document.createElement('style');
+      const s = document.createElement('style');
       s.textContent = '.fixed {position:fixed;}';
       ad.ownerDocument.body.appendChild(s);
-      var p = ad.ownerDocument.getElementById('parent');
+      const p = ad.ownerDocument.getElementById('parent');
       p.className = 'fixed';
       return ad;
     })).to.be.rejectedWith(/fixed/);
@@ -142,9 +147,9 @@ describe('amp-ad', () => {
       type: 'a9',
       src: 'testsrc',
     }, 'https://schema.org', function(ad) {
-      var lightbox = document.createElement('amp-lightbox');
+      const lightbox = document.createElement('amp-lightbox');
       lightbox.style.position = 'fixed';
-      var p = ad.ownerDocument.getElementById('parent');
+      const p = ad.ownerDocument.getElementById('parent');
       p.parentElement.appendChild(lightbox);
       p.parentElement.removeChild(p);
       lightbox.appendChild(p);
@@ -152,8 +157,91 @@ describe('amp-ad', () => {
     })).to.be.not.be.rejected;
   });
 
-  describe('has no-content', () => {
+  describe('ad intersection', () => {
 
+    let ampAd;
+    let posts;
+
+    beforeEach(() => {
+      posts = [];
+      return getAd({
+        width: 300,
+        height: 250,
+        type: 'a9',
+        src: 'testsrc',
+      }, 'https://schema.org').then(element => {
+        element.style.position = 'absolute';
+        element.style.top = '300px';
+        element.style.left = '50px';
+        viewportFor(element.ownerDocument.defaultView).setScrollTop(50);
+        ampAd = element.implementation_;
+        ampAd.iframe_.contentWindow.postMessage = function(data, origin) {
+          posts.push({
+            data: data,
+            targetOrigin: origin,
+          });
+        };
+        expect(ampAd.shouldSendIntersectionChanges_).to.be.false;
+        ampAd.startSendingIntersectionChanges_();
+        expect(ampAd.shouldSendIntersectionChanges_).to.be.true;
+        expect(ampAd.iframeLayoutBox_).to.be.null;
+        expect(posts).to.have.length(0);
+        ampAd.getVsync().runScheduledTasks();
+        expect(posts).to.have.length(1);
+      });
+    });
+
+    it('should calculate intersection', () => {
+      expect(ampAd.iframeLayoutBox_).to.not.be.null;
+      expect(posts).to.have.length(1);
+      expect(posts[0].targetOrigin).to.equal('http://ads.localhost');
+      const changes = posts[0].data.changes;
+      expect(changes).to.be.array;
+      expect(changes).to.have.length(1);
+      expect(changes[0].time).to.be.number;
+      expect(changes[0].intersectionRect.height).to.equal(150);
+      expect(changes[0].intersectionRect.width).to.equal(300);
+    });
+
+    it('reflect viewport changes', () => {
+      const win = ampAd.element.ownerDocument.defaultView;
+      const viewport = viewportFor(win);
+      expect(posts).to.have.length(1);
+      viewport.setScrollTop(0);
+      ampAd.sendAdIntersection_();
+      expect(posts).to.have.length(2);
+      const changes = posts[1].data.changes;
+      expect(changes).to.have.length(1);
+      expect(changes[0].time).to.be.number;
+      expect(changes[0].intersectionRect.height).to.equal(100);
+      expect(changes[0].intersectionRect.width).to.equal(300);
+
+      viewport.setScrollTop(350);
+      ampAd.sendAdIntersection_();
+      expect(posts).to.have.length(3);
+      const changes2 = posts[2].data.changes;
+      expect(changes2).to.have.length(1);
+      expect(changes2[0].time).to.be.number;
+      expect(changes2[0].intersectionRect.height).to.equal(200);
+    });
+
+    it('observe the viewport', () => {
+      const win = ampAd.element.ownerDocument.defaultView;
+      const viewport = viewportFor(win);
+      expect(posts).to.have.length(1);
+      ampAd.viewportCallback(true);
+      expect(posts).to.have.length(2);
+      viewport.changed_(false, 0);
+      expect(posts).to.have.length(3);
+      ampAd.viewportCallback(false);
+      expect(posts).to.have.length(4);
+      // No longer listening.
+      viewport.changed_(false, 0);
+      expect(posts).to.have.length(4);
+    });
+  });
+
+  describe('has no-content', () => {
     it('should display fallback', () => {
       return getAd({
         width: 300,

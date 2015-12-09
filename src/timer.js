@@ -32,6 +32,9 @@ export class Timer {
     this.taskCount_ = 0;
 
     this.canceled_ = {};
+
+    /** @const {number} */
+    this.startTime_ = this.now();
   }
 
   /**
@@ -41,6 +44,14 @@ export class Timer {
   now() {
     // TODO(dvoytenko): when can we use Date.now?
     return Number(new Date());
+  }
+
+ /**
+  * Returns time since start in milliseconds.
+  * @return {number}
+  */
+  timeSinceStart() {
+    return this.now() - this.startTime_;
   }
 
   /**
@@ -57,7 +68,7 @@ export class Timer {
     if (!opt_delay) {
       // For a delay of zero,  schedule a promise based micro task since
       // they are predictably fast.
-      var id = 'p' + this.taskCount_++;
+      const id = 'p' + this.taskCount_++;
       this.resolved_.then(() => {
         if (this.canceled_[id]) {
           delete this.canceled_[id];
@@ -91,7 +102,7 @@ export class Timer {
    * @template RESULT
    */
   promise(opt_delay, opt_result) {
-    var timerKey = null;
+    let timerKey = null;
     return new Promise((resolve, reject) => {
       timerKey = this.delay(() => {
         timerKey = -1;
@@ -120,8 +131,8 @@ export class Timer {
    * @template RESULT
    */
   timeoutPromise(delay, opt_racePromise) {
-    var timerKey = null;
-    var delayPromise = new Promise((resolve, reject) => {
+    let timerKey = null;
+    const delayPromise = new Promise((resolve, reject) => {
       timerKey = this.delay(() => {
         timerKey = -1;
         reject('timeout');

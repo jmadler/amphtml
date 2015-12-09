@@ -41,16 +41,16 @@ const count = {};
  *     - A _context object for internal use.
  */
 function getFrameAttributes(parentWindow, element, opt_type) {
-  var width = element.getAttribute('width');
-  var height = element.getAttribute('height');
-  var type = opt_type || element.getAttribute('type');
+  const width = element.getAttribute('width');
+  const height = element.getAttribute('height');
+  const type = opt_type || element.getAttribute('type');
   assert(type, 'Attribute type required for <amp-ad>: %s', element);
-  var attributes = {};
+  const attributes = {};
   // Do these first, as the other attributes have precedence.
   addDataAndJsonAttributes_(element, attributes);
   attributes.width = getLengthNumeral(width);
   attributes.height = getLengthNumeral(height);
-  var box = element.getLayoutBox();
+  const box = element.getLayoutBox();
   attributes.initialWindowWidth = box.width;
   attributes.initialWindowHeight = box.height;
   attributes.type = type;
@@ -62,7 +62,7 @@ function getFrameAttributes(parentWindow, element, opt_type) {
     },
     mode: getMode()
   };
-  var adSrc = element.getAttribute('src');
+  const adSrc = element.getAttribute('src');
   if (adSrc) {
     attributes.src = adSrc;
   }
@@ -78,18 +78,19 @@ function getFrameAttributes(parentWindow, element, opt_type) {
  * @return {!Element} The iframe.
  */
 export function getIframe(parentWindow, element, opt_type) {
-  var attributes = getFrameAttributes(parentWindow, element, opt_type);
-  var iframe = document.createElement('iframe');
+  const attributes = getFrameAttributes(parentWindow, element, opt_type);
+  const iframe = document.createElement('iframe');
   if (!count[attributes.type]) {
     count[attributes.type] = 0;
   }
   iframe.name = 'frame_' + attributes.type + '_' + count[attributes.type]++;
 
   // Pass ad attributes to iframe via the fragment.
-  var src = getBootstrapBaseUrl(parentWindow) + '#' +
+  const src = getBootstrapBaseUrl(parentWindow) + '#' +
       JSON.stringify(attributes);
 
   iframe.src = src;
+  iframe.ampLocation = parseUrl(src);
   iframe.width = attributes.width;
   iframe.height = attributes.height;
   iframe.style.border = 'none';
@@ -112,8 +113,8 @@ export function getIframe(parentWindow, element, opt_type) {
  * @return {!Unlisten}
  */
 export function listen(iframe, typeOfMessage, callback) {
-  var win = iframe.ownerDocument.defaultView;
-  var origin = parseUrl(getBootstrapBaseUrl(win)).origin;
+  const win = iframe.ownerDocument.defaultView;
+  const origin = iframe.ampLocation.origin;
   const listener = function(event) {
     if (event.origin != origin) {
       return;
@@ -138,6 +139,35 @@ export function listen(iframe, typeOfMessage, callback) {
 }
 
 /**
+ * Allows listening for a message from the iframe and then removes the listener
+ *
+ * @param {!Element} iframe
+ * @param {string} typeOfMessage
+ * @param {function(!Object)} callback Called when a message of this type
+ *     arrives for this iframe.
+ * @return {!Unlisten}
+ */
+export function listenOnce(iframe, typeOfMessage, callback) {
+  const unlisten = listen(iframe, typeOfMessage, data => {
+    unlisten();
+    return callback(data);
+  });
+  return unlisten;
+}
+
+/**
+ * Posts a message to the iframe;
+ * @param {!Element} element The 3p iframe.
+ * @param {string} type Type of the message.
+ * @param {!Object} object Message payload.
+ */
+export function postMessage(iframe, type, object) {
+  object.type = type;
+  object.sentinel = 'amp-3p';
+  iframe.contentWindow./*OK*/postMessage(object, iframe.ampLocation.origin);
+}
+
+/**
  * Copies data- attributes from the element into the attributes object.
  * Removes the data- from the name and capitalizes after -. If there
  * is an attribute called json, parses the JSON and adds it to the
@@ -147,23 +177,23 @@ export function listen(iframe, typeOfMessage, callback) {
  * visibleForTesting
  */
 export function addDataAndJsonAttributes_(element, attributes) {
-  for (var i = 0; i < element.attributes.length; i++) {
-    var attr = element.attributes[i];
+  for (let i = 0; i < element.attributes.length; i++) {
+    const attr = element.attributes[i];
     if (attr.name.indexOf('data-') != 0) {
       continue;
     }
     attributes[dashToCamelCase(attr.name.substr(5))] = attr.value;
   }
-  var json = element.getAttribute('json');
+  const json = element.getAttribute('json');
   if (json) {
-    var obj;
+    let obj;
     try {
       obj = JSON.parse(json);
     } catch (e) {
       assert(false, 'Error parsing JSON in json attribute in element %s',
           element);
     }
-    for (var key in obj) {
+    for (const key in obj) {
       attributes[key] = obj[key];
     }
   }
@@ -175,8 +205,8 @@ export function addDataAndJsonAttributes_(element, attributes) {
  * @return {string}
  */
 export function prefetchBootstrap(window) {
-  var url = getBootstrapBaseUrl(window);
-  var preconnect = preconnectFor(window);
+  const url = getBootstrapBaseUrl(window);
+  const preconnect = preconnectFor(window);
   preconnect.prefetch(url);
   // While the URL may point to a custom domain, this URL will always be
   // fetched by it.
@@ -203,7 +233,7 @@ export function getBootstrapBaseUrl(parentWindow) {
  * @return {string}
  */
 function getDefaultBootstrapBaseUrl(parentWindow) {
-  var url =
+  let url =
       'https://3p.ampproject.net/$internalRuntimeVersion$/frame.html';
   if (getMode().localDev) {
     url = 'http://ads.localhost:' + parentWindow.location.port +
@@ -221,12 +251,12 @@ function getDefaultBootstrapBaseUrl(parentWindow) {
  * @return {?string}
  */
 function getCustomBootstrapBaseUrl(parentWindow) {
-  var meta = parentWindow.document
+  const meta = parentWindow.document
       .querySelector('meta[name="amp-3p-iframe-src"]');
   if (!meta) {
     return null;
   }
-  var url = assertHttpsUrl(meta.getAttribute('content'), meta);
+  const url = assertHttpsUrl(meta.getAttribute('content'), meta);
   assert(url.indexOf('?') == -1,
       '3p iframe url must not include query string %s in element %s.',
       url, meta);

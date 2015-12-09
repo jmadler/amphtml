@@ -23,7 +23,7 @@ import {loadPromise} from '../../src/event-helper';
 // use it directly.
 if (!window.validatorLoad) {
   window.validatorLoad = (function() {
-    var s = document.createElement('script');
+    const s = document.createElement('script');
     s.src = 'https://www.gstatic.com/amphtml/v0/validator.js';
     document.body.appendChild(s);
     return loadPromise(s);
@@ -34,7 +34,7 @@ describe('example', function() {
   // TODO(@cramforce): Remove when test is hermetic.
   this.timeout(5000);
 
-  var examples = [
+  const examples = [
     'ads.amp.html',
     'metadata-examples/article-json-ld.amp.html',
     'metadata-examples/article-microdata.amp.html',
@@ -55,15 +55,20 @@ describe('example', function() {
    * Only add to this whitelist to temporarily manage discrepancies
    * between validator and runtime.
    *
-   * @constructor {!Array<RegExp>}
+   * Ex: `/INVALID_ATTR_VALUE.*vprt/`
+   *
+   * @constructor {!Array<!RegExp>}
    */
-  var errorWhitelist = [
-    // TODO(dvoytenko): Remove. Viewport values changed in #592. Waiting for
-    // the validator to catch up.
-    /INVALID_ATTR_VALUE.*vprt/
+  const errorWhitelist = [
+    // TODO(dvoytenko): Remove once validator supports "data-videoid" for
+    // "amp-youtube" elements.
+    /MANDATORY_ATTR_MISSING video-id/,
+
+    // TODO(dvoytenko): Remove once validator supports "amp-font" element.
+    /DISALLOWED_TAG amp-font/,
   ];
 
-  var usedWhitelist = [];
+  const usedWhitelist = [];
 
   beforeEach(() => {
     return window.validatorLoad;
@@ -71,39 +76,38 @@ describe('example', function() {
 
   examples.forEach(filename => {
     it(filename + ' should validate', () => {
-      var url = '/base/examples/' + filename;
+      const url = '/base/examples/' + filename;
       return get(url).then(html => {
-        var validationResult = amp.validator.validateString(html);
-        var rendered = amp.validator.renderValidationResult(validationResult,
+        const validationResult = amp.validator.validateString(html);
+        const rendered = amp.validator.renderValidationResult(validationResult,
             url);
 
-        var errors = [];
-        LINES: for (let i = 0; i < rendered.length; i++) {
-          var line = rendered[i];
-          if (line == 'PASS') {
-            continue;
-          }
-          if (line == 'FAIL') {
-            // We only look at individual error lines.
-            continue;
-          }
-          if (/DEV_MODE_ENABLED/.test(line)) {
-            // This error is expected since we have to be in dev mode to
-            // run the validator. It is only a warning and we'd probably
-            // see that by looking for PASS / FAIL. By itself it doesn't
-            // make things fail.
-            // TODO(johannes): Add warning prefixes to such events so they
-            // can be detected systematically.
-            continue;
-          }
-          for (let n = 0; n < errorWhitelist.length; n++) {
-            var ok = errorWhitelist[n];
-            if (ok.test(rendered)) {
-              usedWhitelist.push(ok);
-              continue LINES;
+        const errors = [];
+        if (rendered[0] == 'FAIL') {
+          for (let i = 1; i < rendered.length; i++) {
+            const line = rendered[i];
+            if (/DEV_MODE_ENABLED/.test(line)) {
+              // This error is expected since we have to be in dev mode to
+              // run the validator. It is only a warning and we'd probably
+              // see that by looking for PASS / FAIL. By itself it doesn't
+              // make things fail.
+              // TODO(johannes): Add warning prefixes to such events so they
+              // can be detected systematically.
+              continue;
+            }
+            let whitelisted = false;
+            for (let n = 0; n < errorWhitelist.length; n++) {
+              const ok = errorWhitelist[n];
+              if (ok.test(line)) {
+                whitelisted = true;
+                usedWhitelist.push(ok);
+                break;
+              }
+            }
+            if (!whitelisted) {
+              errors.push(line);
             }
           }
-          errors.push(line);
         }
         expect(errors.join('\n')).to.equal('');
       });
@@ -122,7 +126,7 @@ describe('example', function() {
    */
   function get(filename) {
     return new Promise((resolve, reject) => {
-      var xhr = new XMLHttpRequest();
+      const xhr = new XMLHttpRequest();
 
       xhr.onreadystatechange = function() {
         if (xhr.readyState == 4) {
