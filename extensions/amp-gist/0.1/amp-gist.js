@@ -34,6 +34,7 @@ class AmpGist extends AMP.BaseElement {
 
   /** @override */
   layoutCallback() {
+   debugger;
     var src = AMP.assert(
         (this.element.getAttribute('data-src') ||
         this.element.getAttribute('src')),
@@ -47,15 +48,13 @@ class AmpGist extends AMP.BaseElement {
     this.applyFillContent(iframe);
     this.element.appendChild(iframe);
     // Triggered by context.updateDimensions() inside the iframe.
-    listen(iframe, 'embed-size', data => {
-      iframe.contentWindow.document.body.innerHTML = '<script src="' + src + '"></script>';
-      iframe.height = data.height;
-      iframe.width = data.width;
-      var amp = iframe.parentElement;
-      amp.setAttribute('height', data.height);
-      amp.setAttribute('width', data.width);
-      this.changeHeight(data.height);
-    });
+      iframe.src = src; //contentWindow.document.body.innerHTML = '<script src="' + src + '"></script>';
+      iframe.height = this.element.getAttribute('height');
+      iframe.width = this.element.getAttribute('width');
+//      var amp = iframe.parentElement;
+//      amp.setAttribute('height', data.height);
+//      amp.setAttribute('width', data.width);
+//      this.changeHeight(data.height);
     return loadPromise(iframe);
   }
 };
